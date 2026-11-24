@@ -11,6 +11,8 @@ A manga, manhwa and comic reader for Android, built on [Mihon](https://github.co
 * **Extension sync**: extensions installed or removed on one device follow on the others.
 * **Automatic migration** of entries whose source is no longer installed, with a summary and a revert option.
 * **Duplicate clean-up** that keeps the most complete copy of each series.
+* **Source health check** that tests each source (list, chapters, pages, first image) and ranks them by
+  whether they work, their speed and how much of your library they hold.
 * **In-app updates** from this repository's releases.
 
 ## Install

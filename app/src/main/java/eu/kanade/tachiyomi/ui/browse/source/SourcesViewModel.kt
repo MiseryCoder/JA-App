@@ -21,14 +21,17 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import logcat.LogPriority
+import mihon.feature.sourcehealth.SourceHealth
+import mihon.feature.sourcehealth.SourceHealthChecker
+import mihon.feature.sourcehealth.sourceHealthComparator
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
+import tachiyomi.domain.source.repository.SourceRepository
 import java.util.TreeMap
 import kotlin.time.Duration.Companion.seconds
 
@@ -39,6 +42,8 @@ class SourcesViewModel(
     private val getEnabledSources: GetEnabledSources,
     private val toggleSource: ToggleSource,
     private val toggleSourcePin: ToggleSourcePin,
+    sourceHealthChecker: SourceHealthChecker,
+    sourceRepository: SourceRepository,
 ) : ViewModel() {
 
     private val _events = Channel<Event>(Int.MAX_VALUE)
@@ -46,12 +51,18 @@ class SourcesViewModel(
 
     private val dialog = MutableStateFlow<Dialog?>(null)
 
-    private val enabledSources = getEnabledSources.subscribe()
+    private val enabledSources = combine(
+        getEnabledSources.subscribe(),
+        sourceHealthChecker.results,
+        sourceRepository.getSourcesWithFavoriteCount(),
+    ) { sources, health, favoriteCounts ->
+        val libraryCounts = favoriteCounts.associate { (source, count) -> source.id to count }
+        toSourceUiModels(sources, health, libraryCounts)
+    }
         .catch {
             logcat(LogPriority.ERROR, it)
             _events.send(Event.FailedFetchingSources)
         }
-        .map(::toSourceUiModels)
 
     val state: StateFlow<State> = combine(
         enabledSources,
@@ -62,7 +73,11 @@ class SourcesViewModel(
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
-    private fun toSourceUiModels(sources: List<Source>): List<SourceUiModel> {
+    private fun toSourceUiModels(
+        sources: List<Source>,
+        health: Map<Long, SourceHealth>,
+        libraryCounts: Map<Long, Long>,
+    ): List<SourceUiModel> {
         val map = TreeMap<String, MutableList<Source>> { d1, d2 ->
             // Sources without a lang defined will be placed at the end
             when {
@@ -83,12 +98,25 @@ class SourcesViewModel(
             }
         }
 
+        // Within each group, working sources with the most library entries come first
+        val comparator = sourceHealthComparator<SourceUiModel.Item>(
+            health = { it.health },
+            libraryCount = { it.libraryCount },
+            name = { it.source.name },
+        )
         return byLang.flatMap {
             listOf(
                 SourceUiModel.Header(it.key),
-                *it.value.map { source ->
-                    SourceUiModel.Item(source)
-                }.toTypedArray(),
+                *it.value
+                    .map { source ->
+                        SourceUiModel.Item(
+                            source = source,
+                            health = health[source.id],
+                            libraryCount = libraryCounts[source.id] ?: 0L,
+                        )
+                    }
+                    .sortedWith(comparator)
+                    .toTypedArray(),
             )
         }
     }

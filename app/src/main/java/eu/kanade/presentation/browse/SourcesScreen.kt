@@ -15,12 +15,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import mihon.feature.sourcehealth.SourceHealth
+import mihon.feature.sourcehealth.SourceHealthBadge
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Keep
 import mihon.icons.materialsymbols.roundedfilled.Keep
@@ -36,6 +39,7 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.plus
+import tachiyomi.presentation.core.util.secondaryItemAlpha
 import tachiyomi.source.local.isLocal
 
 @Composable
@@ -81,6 +85,8 @@ fun SourcesScreen(
                         is SourceUiModel.Item -> SourceItem(
                             modifier = Modifier.animateItem(),
                             source = model.source,
+                            health = model.health,
+                            libraryCount = model.libraryCount,
                             onClickItem = onClickItem,
                             onLongClickItem = onLongClickItem,
                             onClickPin = onClickPin,
@@ -109,6 +115,8 @@ private fun SourceHeader(
 @Composable
 private fun SourceItem(
     source: Source,
+    health: SourceHealth?,
+    libraryCount: Long,
     onClickItem: (Source, Listing) -> Unit,
     onLongClickItem: (Source) -> Unit,
     onClickPin: (Source) -> Unit,
@@ -119,6 +127,30 @@ private fun SourceItem(
         source = source,
         onClickItem = { onClickItem(source, Listing.Popular) },
         onLongClickItem = { onLongClickItem(source) },
+        content = { _, sourceLangString ->
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = MaterialTheme.padding.medium)
+                    .weight(1f),
+            ) {
+                Text(
+                    text = source.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (sourceLangString != null) {
+                    Text(
+                        modifier = Modifier.secondaryItemAlpha(),
+                        text = sourceLangString,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                SourceHealthBadge(health = health, libraryCount = libraryCount)
+            }
+        },
         action = {
             if (source.supportsLatest) {
                 TextButton(onClick = { onClickItem(source, Listing.Latest) }) {
@@ -199,6 +231,10 @@ fun SourceOptionsDialog(
 }
 
 sealed interface SourceUiModel {
-    data class Item(val source: Source) : SourceUiModel
+    data class Item(
+        val source: Source,
+        val health: SourceHealth? = null,
+        val libraryCount: Long = 0L,
+    ) : SourceUiModel
     data class Header(val language: String) : SourceUiModel
 }

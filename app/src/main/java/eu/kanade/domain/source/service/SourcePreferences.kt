@@ -135,4 +135,13 @@ class SourcePreferences(
         Preference.appStateKey("auto_migration_last_search"),
         0L,
     )
+
+    /**
+     * The last health check of each source, as JSON. Kept per device, since how well a site works depends on the
+     * network it's reached from, so it isn't backed up or synced.
+     */
+    val sourceHealthResults: Preference<String> = preferenceStore.getString(
+        Preference.appStateKey("source_health_results"),
+        "",
+    )
 }
