@@ -1,0 +1,38 @@
+# Build files
+.gradle
+.kotlin
+build
+
+# IDE files
+*.iml
+.idea/*
+!.idea/icon.svg
+/captures
+
+# Configuration files
+keystore.properties
+local.properties
+
+# macOS specific files
+.DS_Store
+
+# JA: private files that must never be uploaded
+# Google Cloud downloads and anything else in this folder
+client-secret/
+client_secret*.json
+# Files from Claude
+Claude outputs/
+# Signing keys (keystore.properties, which holds their passwords, is listed above)
+*.jks
+*.keystore
+# Built apps (they go in GitHub Releases, not in the code)
+*.apk
+*.aab
+/app/release/
+
+# JA: Mihon's own GitHub automation, donation and issue pages, which don't apply to this fork
+.github/workflows/
+.github/FUNDING.yml
+.github/ISSUE_TEMPLATE/
+.github/pull_request_template.md
+.github/renovate.json5
