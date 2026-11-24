@@ -31,6 +31,14 @@ class BasePreferences(
         false,
     )
 
+    /**
+     * The version code whose release notes were last shown after an update.
+     */
+    val whatsNewShownVersion: Preference<Int> = preferenceStore.getInt(
+        Preference.appStateKey("whats_new_shown_version"),
+        0,
+    )
+
     enum class ExtensionInstaller(val titleRes: StringResource, val requiresSystemPermission: Boolean) {
         LEGACY(MR.strings.ext_installer_legacy, true),
         PACKAGEINSTALLER(MR.strings.ext_installer_packageinstaller, true),

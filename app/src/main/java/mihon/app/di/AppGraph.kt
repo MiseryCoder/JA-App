@@ -48,6 +48,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import mihon.feature.recommended.RecommendedSetupManager
 import nl.adaptivity.xmlutil.serialization.XML
 import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.category.interactor.GetCategories
@@ -102,6 +103,8 @@ interface AppGraph : ViewModelGraph {
     val crashLogUtil: CrashLogUtil
 
     val googleDriveAuth: GoogleDriveAuth
+
+    val recommendedSetup: RecommendedSetupManager
 
     val downloadManager: DownloadManager
 

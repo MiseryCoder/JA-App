@@ -82,6 +82,7 @@ import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isBenchmarkBuildType
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.CancellationException
@@ -104,10 +105,16 @@ import mihon.core.migration.Migrator
 import mihon.domain.database.repository.DatabaseRepository
 import mihon.feature.migration.auto.AutoMigrationResultsDialog
 import mihon.feature.migration.auto.AutoMigrator
+import mihon.feature.recommended.RecommendedSetup
+import mihon.feature.recommended.RecommendedSetupDialog
+import mihon.feature.recommended.RecommendedSetupManager
+import mihon.feature.whatsnew.WhatsNew
+import mihon.feature.whatsnew.WhatsNewDialog
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.util.collectAsState
@@ -138,6 +145,10 @@ class MainActivity : BaseActivity() {
     @Inject private lateinit var extensionManager: ExtensionManager
 
     @Inject private lateinit var autoMigrator: AutoMigrator
+
+    @Inject private lateinit var whatsNew: WhatsNew
+
+    @Inject private lateinit var recommendedSetup: RecommendedSetupManager
 
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
@@ -295,6 +306,8 @@ class MainActivity : BaseActivity() {
                     if (isLaunch) CheckForUpdates()
                     ShowOnboarding()
                     ShowAutoMigrationResults()
+                    if (isLaunch) ShowWhatsNew()
+                    ShowRecommendedSetup()
                 }
             }
         }
@@ -425,6 +438,75 @@ class MainActivity : BaseActivity() {
                 migrations = migrations,
                 onRevert = { scope.launch { autoMigrator.revert(it) } },
                 onDismissRequest = autoMigrator::acknowledge,
+            )
+        }
+    }
+
+    /**
+     * Shows the release notes of this version once, the first time it's opened after an update.
+     */
+    @Composable
+    private fun ShowWhatsNew() {
+        var notes by remember { mutableStateOf<WhatsNew.Notes?>(null) }
+
+        LaunchedEffect(Unit) {
+            notes = try {
+                whatsNew.getUnseen()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Offline or GitHub unreachable: tried again on the next start
+                logcat(LogPriority.WARN, e) { "Couldn't get the release notes" }
+                null
+            }
+        }
+
+        notes?.let {
+            WhatsNewDialog(
+                notes = it,
+                onDismissRequest = {
+                    whatsNew.markSeen()
+                    notes = null
+                },
+            )
+        }
+    }
+
+    /**
+     * Offers a new user the extension stores and extensions the author of the app uses, once the onboarding is
+     * done.
+     */
+    @Composable
+    private fun ShowRecommendedSetup() {
+        val context = LocalContext.current
+        val onboarded by preferences.shownOnboardingFlow.collectAsState()
+        var suggestion by remember { mutableStateOf<RecommendedSetup?>(null) }
+
+        LaunchedEffect(onboarded) {
+            if (!onboarded) return@LaunchedEffect
+            suggestion = try {
+                recommendedSetup.getFirstStartSuggestion()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN, e) { "Couldn't get the recommended setup" }
+                null
+            }
+        }
+
+        suggestion?.let { setup ->
+            RecommendedSetupDialog(
+                setup = setup,
+                onConfirm = { selected ->
+                    recommendedSetup.markHandled()
+                    recommendedSetup.install(selected)
+                    suggestion = null
+                    context.toast(MR.strings.recommended_setup_installing)
+                },
+                onDismissRequest = {
+                    recommendedSetup.markHandled()
+                    suggestion = null
+                },
             )
         }
     }

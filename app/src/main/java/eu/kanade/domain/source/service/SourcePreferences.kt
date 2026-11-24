@@ -144,4 +144,12 @@ class SourcePreferences(
         Preference.appStateKey("source_health_results"),
         "",
     )
+
+    /**
+     * Whether the recommended setup was offered on this device, after which it isn't offered by itself again.
+     */
+    val recommendedSetupHandled: Preference<Boolean> = preferenceStore.getBoolean(
+        Preference.appStateKey("recommended_setup_handled"),
+        false,
+    )
 }
