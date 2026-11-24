@@ -25,6 +25,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -39,6 +40,8 @@ import mihon.feature.migration.auto.missingSourceMatchComparator
 import mihon.feature.migration.list.models.MigratingManga
 import mihon.feature.migration.list.models.MigratingManga.SearchResult
 import mihon.feature.migration.list.search.SmartSourceSearchEngine
+import mihon.feature.sourcehealth.SourceHealth
+import mihon.feature.sourcehealth.SourceHealthChecker
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapterSummaryByMangaId
 import tachiyomi.domain.manga.interactor.GetManga
@@ -58,6 +61,7 @@ class MigrationListViewModel(
     private val getChapterSummaryByMangaId: GetChapterSummaryByMangaId,
     private val migrateManga: MigrateMangaUseCase,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
+    private val sourceHealthChecker: SourceHealthChecker,
 ) : ViewModel() {
 
     val state: StateFlow<MigrationListViewModel.State>
@@ -153,7 +157,13 @@ class MigrationListViewModel(
                     if (prioritizeByChapters) {
                         val sourceSemaphore = Semaphore(5)
                         val language = sourceManager.getOrStub(manga.manga.source).lang
-                        sources.map { source ->
+                        // Moving an entry to the source it's already on would change nothing
+                        val candidates = if (searchAllSources) {
+                            sources.filter { it.id != manga.manga.source }
+                        } else {
+                            sources
+                        }
+                        candidates.map { source ->
                             async innerAsync@{
                                 sourceSemaphore.withPermit {
                                     val result = searchSource(manga.manga, source, deepSearchMode)
@@ -209,14 +219,17 @@ class MigrationListViewModel(
     }
 
     /**
-     * Returns the sources the user browses: the installed ones in an enabled language that aren't disabled.
+     * Returns the sources the user browses: the installed ones in an enabled language that aren't disabled,
+     * leaving out those the last health check found broken, since an entry moved there couldn't be read either.
      */
     private suspend fun getEnabledSources(): List<Source> {
         val languages = preferences.enabledLanguages.get()
         val disabledSources = preferences.disabledSources.get()
+        val health = sourceHealthChecker.results.first()
         return sourceManager.getAll()
             .filterIsInstance<HttpSource>()
             .filter { it.lang in languages && it.id.toString() !in disabledSources }
+            .filterNot { health[it.id]?.status == SourceHealth.Status.BROKEN }
     }
 
     private fun bestMatchComparator(

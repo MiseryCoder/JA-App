@@ -946,6 +946,7 @@
     <string name="source_health_step_chapters">the chapter list</string>
     <string name="source_health_step_pages">the page list</string>
     <string name="source_health_step_image">the first image</string>
+    <string name="source_health_migrate">Migrate its %1$d library entries</string>
     <string name="source_health_checked_at">Checked %1$s</string>
     <string name="source_health_empty">No sources to check. Install extensions in Browse → Extensions first.</string>
     <string name="auto_migration_checking_title">Checking for entries with missing sources</string>
